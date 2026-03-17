@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Text to Speech</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f0f11;
+      color: #e8e8ed;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: #1a1a1f;
+      border: 1px solid #2a2a32;
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 620px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.5);
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: #6b6b7a;
+      margin-bottom: 32px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #8888a0;
+      margin-bottom: 8px;
+    }
+
+    textarea {
+      width: 100%;
+      background: #111115;
+      border: 1px solid #2a2a32;
+      border-radius: 10px;
+      color: #e8e8ed;
+      font-size: 1rem;
+      line-height: 1.6;
+      padding: 14px 16px;
+      resize: vertical;
+      min-height: 140px;
+      outline: none;
+      transition: border-color .15s;
+      margin-bottom: 20px;
+    }
+
+    textarea:focus { border-color: #6c63ff; }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    select, input[type="range"] {
+      width: 100%;
+      background: #111115;
+      border: 1px solid #2a2a32;
+      border-radius: 10px;
+      color: #e8e8ed;
+      font-size: 0.9rem;
+      padding: 10px 14px;
+      outline: none;
+      cursor: pointer;
+      transition: border-color .15s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    select:focus { border-color: #6c63ff; }
+
+    .speed-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .speed-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    input[type="range"] {
+      padding: 0;
+      border: none;
+      background: transparent;
+      flex: 1;
+      height: 20px;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 5px;
+      border-radius: 3px;
+      background: linear-gradient(to right, #6c63ff var(--pct, 33%), #2e2e3e var(--pct, 33%));
+    }
+
+    input[type="range"]::-moz-range-track {
+      height: 5px;
+      border-radius: 3px;
+      background: #2e2e3e;
+    }
+
+    input[type="range"]::-moz-range-progress {
+      height: 5px;
+      border-radius: 3px;
+      background: #6c63ff;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #6c63ff;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 3px rgba(108,99,255,.25);
+      margin-top: -6.5px;
+      cursor: pointer;
+      transition: box-shadow .15s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      box-shadow: 0 0 0 5px rgba(108,99,255,.35);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #6c63ff;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 3px rgba(108,99,255,.25);
+      cursor: pointer;
+    }
+
+    .speed-val {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #6c63ff;
+      min-width: 32px;
+      text-align: right;
+    }
+
+    .char-count {
+      font-size: 0.75rem;
+      color: #44444f;
+      text-align: right;
+      margin-top: -14px;
+      margin-bottom: 20px;
+    }
+
+    button#generate {
+      width: 100%;
+      background: #6c63ff;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 14px;
+      cursor: pointer;
+      transition: background .15s, opacity .15s;
+      margin-bottom: 20px;
+    }
+
+    button#generate:hover:not(:disabled) { background: #5a52e0; }
+    button#generate:disabled { opacity: .5; cursor: not-allowed; }
+
+    .status {
+      font-size: 0.85rem;
+      color: #6b6b7a;
+      text-align: center;
+      min-height: 20px;
+      margin-bottom: 20px;
+    }
+
+    .status.error { color: #ff6b6b; }
+    .status.success { color: #63ffb0; }
+
+    .result {
+      display: none;
+      background: #111115;
+      border: 1px solid #2a2a32;
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .result.visible { display: block; }
+
+    audio {
+      width: 100%;
+      margin-bottom: 14px;
+      border-radius: 6px;
+    }
+
+    .dl-btn {
+      display: block;
+      width: 100%;
+      text-align: center;
+      background: #1e1e28;
+      border: 1px solid #2a2a32;
+      border-radius: 8px;
+      color: #e8e8ed;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 10px;
+      text-decoration: none;
+      transition: background .15s;
+    }
+
+    .dl-btn:hover { background: #2a2a38; }
+
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid #ffffff44;
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>Text to Speech</h1>
+  <p class="subtitle">Powered by Kokoro-82M · runs locally · free</p>
+
+  <label for="text">Your text</label>
+  <textarea id="text" placeholder="Type or paste text here…" maxlength="5000"></textarea>
+  <div class="char-count"><span id="charCount">0</span> / 5000</div>
+
+  <div class="row">
+    <div>
+      <label for="voice">Voice</label>
+      <select id="voice"></select>
+    </div>
+    <div class="speed-wrap">
+      <label>Speed</label>
+      <div class="speed-row">
+        <input type="range" id="speed" min="0.5" max="2.0" step="0.05" value="1.0" />
+        <span class="speed-val" id="speedVal">1.0×</span>
+      </div>
+    </div>
+  </div>
+
+  <button id="generate">Generate MP3</button>
+
+  <div class="status" id="status"></div>
+
+  <div class="result" id="result">
+    <audio id="player" controls></audio>
+    <a id="dlLink" class="dl-btn" download="tts_output.mp3">⬇ Download MP3</a>
+  </div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+
+  // Load voices
+  fetch("/voices").then(r => r.json()).then(voices => {
+    const sel = $("voice");
+    for (const [k, v] of Object.entries(voices)) {
+      const o = document.createElement("option");
+      o.value = k; o.textContent = v;
+      sel.appendChild(o);
+    }
+  });
+
+  // Char counter
+  $("text").addEventListener("input", () => {
+    $("charCount").textContent = $("text").value.length;
+  });
+
+  // Speed display + slider fill
+  function updateSlider() {
+    const el = $("speed");
+    const min = parseFloat(el.min), max = parseFloat(el.max), val = parseFloat(el.value);
+    const pct = ((val - min) / (max - min) * 100).toFixed(1) + "%";
+    el.style.setProperty("--pct", pct);
+    $("speedVal").textContent = val.toFixed(2) + "×";
+  }
+  $("speed").addEventListener("input", updateSlider);
+  updateSlider();
+
+  // Generate
+  $("generate").addEventListener("click", async () => {
+    const text = $("text").value.trim();
+    if (!text) { setStatus("Please enter some text.", "error"); return; }
+
+    const btn = $("generate");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Generating…';
+    setStatus("Processing — first run downloads the model (~330 MB)…");
+    $("result").classList.remove("visible");
+
+    try {
+      const res = await fetch("/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text,
+          voice: $("voice").value,
+          speed: parseFloat($("speed").value),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Generation failed.");
+
+      const url = `/download/${data.file}`;
+      $("player").src = url;
+      $("dlLink").href = url;
+      $("result").classList.add("visible");
+      setStatus("Done!", "success");
+    } catch (err) {
+      setStatus(err.message, "error");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Generate MP3";
+    }
+  });
+
+  function setStatus(msg, type = "") {
+    const el = $("status");
+    el.textContent = msg;
+    el.className = "status " + type;
+  }
+</script>
+</body>
+</html>
