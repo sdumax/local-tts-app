@@ -1,14 +1,11 @@
 import io
 import uuid
-import tempfile
-import os
 from pathlib import Path
 
 import numpy as np
 import soundfile as sf
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pydub import AudioSegment
 
@@ -18,27 +15,39 @@ app = FastAPI(title="TTS App")
 OUTPUT_DIR = Path("outputs")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-# Lazy-load pipeline to avoid startup delay
-_pipeline = None
+# Lazy-load pipelines per lang_code
+_pipelines: dict = {}
 
+# voice_id -> (label, lang_code)
+# Canadian English uses British pipeline (closest available phonology)
+# Canadian French uses French pipeline (ff_siwis is the only French voice)
 VOICES = {
-    "af_heart": "American Female – Heart (warm)",
-    "af_bella": "American Female – Bella (expressive)",
-    "af_nicole": "American Female – Nicole (soft)",
-    "am_adam":  "American Male – Adam (deep)",
-    "am_michael": "American Male – Michael (clear)",
-    "bf_emma":  "British Female – Emma",
-    "bm_george": "British Male – George",
-    "bm_lewis":  "British Male – Lewis",
+    # American English
+    "af_heart":   ("American Female – Heart (warm)",       "a"),
+    "af_bella":   ("American Female – Bella (expressive)", "a"),
+    "af_nicole":  ("American Female – Nicole (soft)",      "a"),
+    "am_adam":    ("American Male – Adam (deep)",          "a"),
+    "am_michael": ("American Male – Michael (clear)",      "a"),
+    # British English
+    "bf_emma":    ("British Female – Emma",                "b"),
+    "bm_george":  ("British Male – George",                "b"),
+    "bm_lewis":   ("British Male – Lewis",                 "b"),
+    # Canadian English (British pipeline — closest available)
+    "bf_alice":   ("Canadian English Female – Alice",      "b"),
+    "bm_daniel":  ("Canadian English Male – Daniel",       "b"),
+    # Canadian French (French pipeline)
+    "ff_siwis":   ("Canadian French Female – Siwis",       "f"),
 }
 
 
-def get_pipeline():
-    global _pipeline
-    if _pipeline is None:
-        from kokoro import KPipeline
-        _pipeline = KPipeline(lang_code="a")  # 'a' = American English
-    return _pipeline
+def get_pipeline(lang_code: str):
+    if lang_code not in _pipelines:
+        from kokoro import KPipeline, KModel
+        # Share the model weights across pipelines to save memory
+        if not _pipelines:
+            _pipelines["_model"] = KModel().to("cpu").eval()
+        _pipelines[lang_code] = KPipeline(lang_code=lang_code, model=_pipelines["_model"])
+    return _pipelines[lang_code]
 
 
 class TTSRequest(BaseModel):
@@ -55,7 +64,7 @@ async def index():
 
 @app.get("/voices")
 async def list_voices():
-    return VOICES
+    return {k: v[0] for k, v in VOICES.items()}
 
 
 @app.post("/generate")
@@ -68,7 +77,8 @@ async def generate(req: TTSRequest):
         raise HTTPException(status_code=400, detail="Speed must be between 0.5 and 2.0.")
 
     try:
-        pipeline = get_pipeline()
+        _, lang_code = VOICES[req.voice]
+        pipeline = get_pipeline(lang_code)
         audio_chunks = []
 
         for _, _, audio in pipeline(req.text, voice=req.voice, speed=req.speed):

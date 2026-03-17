@@ -289,13 +289,31 @@
 <script>
   const $ = id => document.getElementById(id);
 
-  // Load voices
+  // Load voices grouped by region
   fetch("/voices").then(r => r.json()).then(voices => {
     const sel = $("voice");
+    const groups = {};
     for (const [k, v] of Object.entries(voices)) {
-      const o = document.createElement("option");
-      o.value = k; o.textContent = v;
-      sel.appendChild(o);
+      const region = k.startsWith("af_") || k.startsWith("am_") ? "American English"
+                   : k.startsWith("bf_alice") || k.startsWith("bm_daniel") ? "Canadian English"
+                   : k.startsWith("bf_") || k.startsWith("bm_") ? "British English"
+                   : k.startsWith("ff_") ? "Canadian French"
+                   : "Other";
+      if (!groups[region]) groups[region] = [];
+      groups[region].push([k, v]);
+    }
+    const order = ["American English", "British English", "Canadian English", "Canadian French", "Other"];
+    for (const region of order) {
+      if (!groups[region]) continue;
+      const grp = document.createElement("optgroup");
+      grp.label = region;
+      for (const [k, v] of groups[region]) {
+        const o = document.createElement("option");
+        o.value = k;
+        o.textContent = v.replace(/^(American|British|Canadian (English|French)) (Female|Male) – /, "$3 – ");
+        grp.appendChild(o);
+      }
+      sel.appendChild(grp);
     }
   });
 
