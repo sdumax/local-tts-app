@@ -4,7 +4,7 @@ kokoro==0.9.4
 soundfile==0.12.1
 pydub==0.25.1
 python-multipart==0.0.20
-# numpy<2 required — torch 2.2.x was compiled against NumPy 1.x
-numpy==1.26.4
-# transformers 5.x requires PyTorch>=2.4 which has no Intel macOS wheels
+# numpy<2 required — torch 2.x was compiled against NumPy 1.x
+numpy<2
+# transformers 5.x requires PyTorch>=2.4; pin to last 4.x to stay compatible
 transformers==4.49.0
